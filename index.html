@@ -473,29 +473,38 @@ input:focus, select:focus { border-color: var(--gold); background: white; }
 
   <!-- コース -->
   <div id="tab-course" class="tab-content">
-    <div class="course-card">
-      <div class="course-icon">⛳</div>
-      <div class="course-name">太平洋クラブ 御殿場コース</div>
-      <div class="course-desc">富士山を望む名門コース。フェアウェイが広く初中級者も楽しめる。</div>
-      <div class="course-tags"><span class="ct-green">🚩 Par 72 / 18H</span><span class="ct-amber">⭐ ★★☆</span></div>
+    <div class="card">
+      <div class="card-title">⛳ コース検索</div>
+      <div class="form-group">
+        <div class="section-label">都道府県</div>
+        <select id="course-pref">
+          <option value="">-- 都道府県を選択 --</option>
+          <option value="1">北海道</option><option value="2">青森県</option><option value="3">岩手県</option>
+          <option value="4">宮城県</option><option value="5">秋田県</option><option value="6">山形県</option>
+          <option value="7">福島県</option><option value="8">茨城県</option><option value="9">栃木県</option>
+          <option value="10">群馬県</option><option value="11">埼玉県</option><option value="12">千葉県</option>
+          <option value="13">東京都</option><option value="14">神奈川県</option><option value="15">新潟県</option>
+          <option value="16">富山県</option><option value="17">石川県</option><option value="18">福井県</option>
+          <option value="19">山梨県</option><option value="20">長野県</option><option value="21">岐阜県</option>
+          <option value="22">静岡県</option><option value="23">愛知県</option><option value="24">三重県</option>
+          <option value="25">滋賀県</option><option value="26">京都府</option><option value="27">大阪府</option>
+          <option value="28">兵庫県</option><option value="29">奈良県</option><option value="30">和歌山県</option>
+          <option value="31">鳥取県</option><option value="32">島根県</option><option value="33">岡山県</option>
+          <option value="34">広島県</option><option value="35">山口県</option><option value="36">徳島県</option>
+          <option value="37">香川県</option><option value="38">愛媛県</option><option value="39">高知県</option>
+          <option value="40">福岡県</option><option value="41">佐賀県</option><option value="42">長崎県</option>
+          <option value="43">熊本県</option><option value="44">大分県</option><option value="45">宮崎県</option>
+          <option value="46">鹿児島県</option><option value="47">沖縄県</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <div class="section-label">コース名（任意）</div>
+        <input type="text" id="course-keyword" placeholder="例：太平洋、よみうり">
+      </div>
+      <button class="btn-primary" onclick="searchCourses()">検索する</button>
     </div>
-    <div class="course-card">
-      <div class="course-icon">🌊</div>
-      <div class="course-name">川奈ホテルゴルフコース</div>
-      <div class="course-desc">海沿いの絶景コース。風の読みが攻略のカギ。</div>
-      <div class="course-tags"><span class="ct-green">🚩 Par 70 / 18H</span><span class="ct-amber">⭐ ★★★</span></div>
-    </div>
-    <div class="course-card">
-      <div class="course-icon">🏙️</div>
-      <div class="course-name">東京よみうりCC</div>
-      <div class="course-desc">都心からアクセス良好。フラットで戦略的なコース設計。</div>
-      <div class="course-tags"><span class="ct-green">🚩 Par 72 / 18H</span><span class="ct-amber">⭐ ★☆☆</span></div>
-    </div>
-    <div class="empty-state">
-      <div class="empty-icon">🗺️</div>
-      <div class="empty-title">Course Search</div>
-      <div class="empty-sub">コース検索・予約連携は準備中</div>
-    </div>
+    <div id="course-loading" style="display:none;text-align:center;padding:40px;color:var(--muted);font-weight:600;">検索中...</div>
+    <div id="course-results"></div>
   </div>
 
   <!-- ギア -->
@@ -907,6 +916,83 @@ function showToast(msg) {
   document.getElementById('toast-msg').textContent = msg;
   el.classList.remove('hidden');
   toastTimer = setTimeout(() => el.classList.add('hidden'), 2500);
+}
+
+// ── 楽天GORA コース検索 ──
+const RAKUTEN_APP_ID  = '73bd8715-0e73-4b38-bb72-d75ec758c7d9';
+const RAKUTEN_AFF_ID  = '51dec36d.bb33393a.51dec36e.c6f5673d';
+
+async function searchCourses() {
+  const pref    = document.getElementById('course-pref').value;
+  const keyword = document.getElementById('course-keyword').value.trim();
+
+  if (!pref && !keyword) {
+    showToast('都道府県またはコース名を入力してください');
+    return;
+  }
+
+  document.getElementById('course-loading').style.display = 'block';
+  document.getElementById('course-results').innerHTML = '';
+
+  const params = new URLSearchParams({
+    applicationId: RAKUTEN_APP_ID,
+    affiliateId:   RAKUTEN_AFF_ID,
+    format:        'json',
+    hits:          10,
+  });
+  if (pref)    params.set('areaCode', pref);
+  if (keyword) params.set('keyword',  keyword);
+
+  try {
+    const res  = await fetch(`https://app.rakuten.co.jp/services/api/Gora/GoraGolfCourseSearch/20170623?${params}`);
+    const data = await res.json();
+    document.getElementById('course-loading').style.display = 'none';
+
+    if (!data.Items || data.Items.length === 0) {
+      document.getElementById('course-results').innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">🔍</div>
+          <div class="empty-title">見つかりませんでした</div>
+          <div class="empty-sub">条件を変えて再検索してください</div>
+        </div>`;
+      return;
+    }
+
+    const html = data.Items.map(({Item: c}) => `
+      <div class="course-card">
+        <div style="display:flex;gap:14px;align-items:flex-start;">
+          ${c.golfCourseImageUrl
+            ? `<img src="${c.golfCourseImageUrl}" style="width:72px;height:72px;object-fit:cover;border-radius:8px;flex-shrink:0;border:1px solid var(--border);">`
+            : `<div style="width:72px;height:72px;background:var(--cream2);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0;">⛳</div>`
+          }
+          <div style="flex:1;min-width:0;">
+            <div class="course-name" style="font-size:15px;">${c.golfCourseName}</div>
+            <div class="course-desc">${c.prefecture || ''} ${c.address || ''}</div>
+            ${c.evaluation ? `<div style="font-size:12px;color:var(--gold);font-weight:700;margin-bottom:8px;">★ ${c.evaluation}</div>` : ''}
+            <div class="course-tags" style="flex-wrap:wrap;gap:6px;">
+              ${c.minPrice ? `<span class="ct-green">￥${Number(c.minPrice).toLocaleString()}〜</span>` : ''}
+              ${c.holes    ? `<span class="ct-amber">${c.holes}H</span>` : ''}
+            </div>
+          </div>
+        </div>
+        <a href="${c.golfCourseDetailUrl || '#'}" target="_blank" rel="noopener"
+          style="display:block;margin-top:14px;text-align:center;padding:12px;background:var(--navy);color:white;border-radius:8px;font-size:13px;font-weight:700;text-decoration:none;letter-spacing:1px;">
+          楽天GORAで予約する →
+        </a>
+      </div>
+    `).join('');
+
+    document.getElementById('course-results').innerHTML = html;
+
+  } catch(e) {
+    document.getElementById('course-loading').style.display = 'none';
+    document.getElementById('course-results').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">⚠️</div>
+        <div class="empty-title">通信エラー</div>
+        <div class="empty-sub">しばらく経ってから再試行してください</div>
+      </div>`;
+  }
 }
 </script>
 </body>
